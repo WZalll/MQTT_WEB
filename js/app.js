@@ -27,6 +27,13 @@ class App {
         }
         
         this.isHeartbeatRunning = false;
+        this.currentPage = 'dashboard';
+        this.dataValues = {
+            temperature: '--',
+            humidity: '--',
+            speed: '--',
+            pressure: '--'
+        };
         
         // 将logger设置为全局变量供其他模块使用
         window.logger = this.logger;
@@ -42,6 +49,7 @@ class App {
         this.bindEvents();
         this.loadSavedConfig();
         this.setupMQTTCallbacks();
+        this.initNavigation();
         console.log('应用初始化完成');
     }
 
@@ -49,6 +57,24 @@ class App {
      * 绑定事件
      */
     bindEvents() {
+        // 侧边栏切换
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', () => {
+                this.toggleSidebar();
+            });
+        }
+
+        // 导航链接
+        const navLinks = document.querySelectorAll('.nav-link');
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const page = link.dataset.page;
+                this.switchPage(page);
+            });
+        });
+
         // MQTT连接控制
         const connectBtn = document.getElementById('connectBtn');
         if (connectBtn) {
@@ -68,6 +94,46 @@ class App {
             });
         }
 
+        // 快速连接按钮
+        const quickConnectBtn = document.getElementById('quickConnectBtn');
+        if (quickConnectBtn) {
+            quickConnectBtn.addEventListener('click', () => {
+                this.switchPage('settings');
+            });
+        }
+
+        // 配置管理
+        const saveConfigBtn = document.getElementById('saveConfigBtn');
+        if (saveConfigBtn) {
+            saveConfigBtn.addEventListener('click', () => {
+                this.saveConfig();
+            });
+        }
+
+        const loadConfigBtn = document.getElementById('loadConfigBtn');
+        if (loadConfigBtn) {
+            loadConfigBtn.addEventListener('click', () => {
+                this.loadSavedConfig();
+            });
+        }
+
+        // 消息发送
+        const sendControlBtn = document.getElementById('sendControlBtn');
+        if (sendControlBtn) {
+            sendControlBtn.addEventListener('click', () => {
+                this.sendControlMessage();
+            });
+        }
+
+        // 预设控制按钮
+        const presetBtns = document.querySelectorAll('.preset-btn');
+        presetBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const command = btn.dataset.command;
+                this.sendPresetCommand(command);
+            });
+        });
+
         // 配置管理
         document.getElementById('saveConfigBtn').addEventListener('click', () => {
             this.saveConfig();
@@ -83,25 +149,83 @@ class App {
         });
 
         // 心跳控制
-        document.getElementById('startHeartbeatBtn').addEventListener('click', () => {
-            this.startHeartbeat();
-        });
+        const startHeartbeatBtn = document.getElementById('startHeartbeatBtn');
+        if (startHeartbeatBtn) {
+            startHeartbeatBtn.addEventListener('click', () => {
+                this.startHeartbeat();
+            });
+        }
 
-        document.getElementById('stopHeartbeatBtn').addEventListener('click', () => {
-            this.stopHeartbeat();
-        });
+        const stopHeartbeatBtn = document.getElementById('stopHeartbeatBtn');
+        if (stopHeartbeatBtn) {
+            stopHeartbeatBtn.addEventListener('click', () => {
+                this.stopHeartbeat();
+            });
+        }
 
         // 日志控制
-        document.getElementById('clearLogBtn').addEventListener('click', () => {
-            this.logger.clearLog();
-        });
+        const clearLogBtn = document.getElementById('clearLogBtn');
+        if (clearLogBtn) {
+            clearLogBtn.addEventListener('click', () => {
+                this.logger.clearLog();
+            });
+        }
 
         // 回车发送消息
-        document.getElementById('controlMessage').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                this.sendControlMessage();
-            }
-        });
+        const controlMessage = document.getElementById('controlMessage');
+        if (controlMessage) {
+            controlMessage.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.sendControlMessage();
+                }
+            });
+        }
+    }
+
+    /**
+     * 初始化导航
+     */
+    initNavigation() {
+        this.switchPage('dashboard'); // 默认显示用户页面
+    }
+
+    /**
+     * 切换侧边栏
+     */
+    toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const mainContent = document.getElementById('mainContent');
+        
+        sidebar.classList.toggle('collapsed');
+        mainContent.classList.toggle('expanded');
+    }
+
+    /**
+     * 切换页面
+     */
+    switchPage(pageName) {
+        console.log('切换到页面:', pageName);
+        
+        // 隐藏所有页面
+        const pages = document.querySelectorAll('.page');
+        pages.forEach(page => page.classList.add('hidden'));
+        
+        // 显示目标页面
+        const targetPage = document.getElementById(`${pageName}-page`);
+        if (targetPage) {
+            targetPage.classList.remove('hidden');
+        }
+        
+        // 更新导航状态
+        const navLinks = document.querySelectorAll('.nav-link');
+        navLinks.forEach(link => link.classList.remove('active'));
+        
+        const activeLink = document.querySelector(`[data-page="${pageName}"]`);
+        if (activeLink) {
+            activeLink.classList.add('active');
+        }
+        
+        this.currentPage = pageName;
     }
 
     /**
@@ -129,10 +253,24 @@ class App {
      */
     onMQTTConnected() {
         // 更新按钮状态
-        document.getElementById('connectBtn').disabled = true;
-        document.getElementById('disconnectBtn').disabled = false;
-        document.getElementById('sendControlBtn').disabled = false;
-        document.getElementById('startHeartbeatBtn').disabled = false;
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const sendControlBtn = document.getElementById('sendControlBtn');
+        const startHeartbeatBtn = document.getElementById('startHeartbeatBtn');
+        const quickConnectBtn = document.getElementById('quickConnectBtn');
+        
+        if (connectBtn) connectBtn.disabled = true;
+        if (disconnectBtn) disconnectBtn.disabled = false;
+        if (sendControlBtn) sendControlBtn.disabled = false;
+        if (startHeartbeatBtn) startHeartbeatBtn.disabled = false;
+        if (quickConnectBtn) {
+            quickConnectBtn.disabled = true;
+            quickConnectBtn.textContent = '已连接';
+        }
+        
+        // 启用预设按钮
+        const presetBtns = document.querySelectorAll('.preset-btn');
+        presetBtns.forEach(btn => btn.disabled = false);
     }
 
     /**
@@ -140,11 +278,26 @@ class App {
      */
     onMQTTDisconnected() {
         // 更新按钮状态
-        document.getElementById('connectBtn').disabled = false;
-        document.getElementById('disconnectBtn').disabled = true;
-        document.getElementById('sendControlBtn').disabled = true;
-        document.getElementById('startHeartbeatBtn').disabled = true;
-        document.getElementById('stopHeartbeatBtn').disabled = true;
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const sendControlBtn = document.getElementById('sendControlBtn');
+        const startHeartbeatBtn = document.getElementById('startHeartbeatBtn');
+        const stopHeartbeatBtn = document.getElementById('stopHeartbeatBtn');
+        const quickConnectBtn = document.getElementById('quickConnectBtn');
+        
+        if (connectBtn) connectBtn.disabled = false;
+        if (disconnectBtn) disconnectBtn.disabled = true;
+        if (sendControlBtn) sendControlBtn.disabled = true;
+        if (startHeartbeatBtn) startHeartbeatBtn.disabled = true;
+        if (stopHeartbeatBtn) stopHeartbeatBtn.disabled = true;
+        if (quickConnectBtn) {
+            quickConnectBtn.disabled = false;
+            quickConnectBtn.textContent = '快速连接';
+        }
+        
+        // 禁用预设按钮
+        const presetBtns = document.querySelectorAll('.preset-btn');
+        presetBtns.forEach(btn => btn.disabled = true);
         
         this.isHeartbeatRunning = false;
     }
@@ -153,6 +306,9 @@ class App {
      * MQTT消息接收回调
      */
     onMQTTMessage(topic, data) {
+        // 更新数据卡片
+        this.updateDataCards(data);
+        
         // 如果数据包含时间戳和数值，添加到图表
         if (typeof data === 'object' && data !== null) {
             // 尝试找到数值数据
@@ -172,6 +328,94 @@ class App {
         } else if (typeof data === 'number' || !isNaN(parseFloat(data))) {
             // 纯数值数据
             this.chartManager.addDataPoint(new Date(), parseFloat(data));
+        }
+    }
+
+    /**
+     * 更新数据卡片
+     */
+    updateDataCards(data) {
+        if (typeof data === 'object' && data !== null) {
+            // 映射数据字段到卡片
+            const fieldMap = {
+                temperature: ['temperature', 'temp', 't'],
+                humidity: ['humidity', 'hum', 'h'],
+                speed: ['speed', 'rotation_speed', 'rpm', 'rotationSpeed'],
+                pressure: ['pressure', 'press', 'p']
+            };
+            
+            Object.entries(fieldMap).forEach(([cardType, fields]) => {
+                const value = this.findValueInData(data, fields);
+                if (value !== null) {
+                    this.updateDataCard(cardType, value);
+                }
+            });
+        }
+    }
+
+    /**
+     * 在数据中查找匹配的字段值
+     */
+    findValueInData(data, fields) {
+        for (const field of fields) {
+            if (data.hasOwnProperty(field) && !isNaN(parseFloat(data[field]))) {
+                return parseFloat(data[field]);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 更新单个数据卡片
+     */
+    updateDataCard(type, value) {
+        const cardElement = document.getElementById(`${type}Value`);
+        if (cardElement) {
+            // 格式化数值显示
+            let formattedValue;
+            if (type === 'temperature') {
+                formattedValue = value.toFixed(1);
+            } else if (type === 'humidity') {
+                formattedValue = Math.round(value);
+            } else if (type === 'speed') {
+                formattedValue = Math.round(value);
+            } else if (type === 'pressure') {
+                formattedValue = value.toFixed(0);
+            } else {
+                formattedValue = value.toFixed(2);
+            }
+            
+            cardElement.textContent = formattedValue;
+            this.dataValues[type] = formattedValue;
+            
+            // 添加更新动画效果
+            cardElement.parentElement.style.transform = 'scale(1.05)';
+            setTimeout(() => {
+                cardElement.parentElement.style.transform = 'scale(1)';
+            }, 200);
+        }
+    }
+
+    /**
+     * 发送预设命令
+     */
+    sendPresetCommand(commandJson) {
+        try {
+            const command = JSON.parse(commandJson);
+            const topic = document.getElementById('publishTopic').value.trim();
+            
+            if (!topic) {
+                alert('请先设置发布主题');
+                return;
+            }
+            
+            const success = this.mqttClient.publish(topic, command);
+            if (success) {
+                this.logger.addLog(`发送预设命令: ${commandJson}`, 'sent');
+            }
+        } catch (error) {
+            console.error('预设命令格式错误:', error);
+            alert('预设命令格式错误');
         }
     }
 
@@ -298,8 +542,12 @@ class App {
         this.mqttClient.startHeartbeat(interval, topic);
         this.isHeartbeatRunning = true;
         
-        document.getElementById('startHeartbeatBtn').disabled = true;
-        document.getElementById('stopHeartbeatBtn').disabled = false;
+        // 更新按钮状态
+        const startBtn = document.getElementById('startHeartbeatBtn');
+        const stopBtn = document.getElementById('stopHeartbeatBtn');
+        
+        if (startBtn) startBtn.disabled = true;
+        if (stopBtn) stopBtn.disabled = false;
     }
 
     /**
@@ -309,8 +557,12 @@ class App {
         this.mqttClient.stopHeartbeat();
         this.isHeartbeatRunning = false;
         
-        document.getElementById('startHeartbeatBtn').disabled = false;
-        document.getElementById('stopHeartbeatBtn').disabled = true;
+        // 更新按钮状态
+        const startBtn = document.getElementById('startHeartbeatBtn');
+        const stopBtn = document.getElementById('stopHeartbeatBtn');
+        
+        if (startBtn) startBtn.disabled = false;
+        if (stopBtn) stopBtn.disabled = true;
     }
 }
 

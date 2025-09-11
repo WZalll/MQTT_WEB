@@ -55,15 +55,7 @@ class ChartManager {
                 },
                 scales: {
                     x: {
-                        type: 'time',
-                        time: {
-                            parser: 'YYYY-MM-DD HH:mm:ss',
-                            displayFormats: {
-                                second: 'HH:mm:ss',
-                                minute: 'HH:mm',
-                                hour: 'HH:mm'
-                            }
-                        },
+                        type: 'linear',
                         title: {
                             display: true,
                             text: '时间'
@@ -135,9 +127,10 @@ class ChartManager {
             this.chart.data.datasets.push(dataset);
         }
 
-        // 添加数据点
+        // 添加数据点 - 使用当前数据点数量作为x轴值
+        const xValue = dataset.data.length;
         dataset.data.push({
-            x: timeLabel,
+            x: xValue,
             y: value
         });
 
