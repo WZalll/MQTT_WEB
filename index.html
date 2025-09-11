@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MQTT控制面板</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <!-- MQTT.js CDN -->
+    <script src="https://unpkg.com/mqtt@5.1.3/dist/mqtt.min.js"></script>
+    
+    <!-- 检查库是否加载成功的脚本 -->
+    <script>
+        window.addEventListener('load', function() {
+            // 检查必要的库
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js 加载失败');
+                document.body.insertAdjacentHTML('afterbegin', '<div style="background: red; color: white; padding: 10px; text-align: center;">Chart.js 库加载失败，请检查网络连接</div>');
+            }
+            if (typeof mqtt === 'undefined') {
+                console.error('MQTT.js 加载失败');
+                document.body.insertAdjacentHTML('afterbegin', '<div style="background: red; color: white; padding: 10px; text-align: center;">MQTT.js 库加载失败，请检查网络连接</div>');
+            }
+        });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>MQTT数据监控面板</h1>
+            <div class="connection-status" id="connectionStatus">
+                <span class="status-indicator" id="statusIndicator"></span>
+                <span id="statusText">未连接</span>
+            </div>
+        </header>
+
+        <!-- MQTT配置面板 -->
+        <div class="config-panel">
+            <h2>MQTT配置</h2>
+            <div class="config-grid">
+                <div class="config-item">
+                    <label for="brokerUrl">服务器地址:</label>
+                    <input type="text" id="brokerUrl" placeholder="ws://broker.emqx.io:8083/mqtt" value="ws://broker.emqx.io:8083/mqtt">
+                </div>
+                <div class="config-item">
+                    <label for="clientId">客户端ID:</label>
+                    <input type="text" id="clientId" placeholder="mqtt_web_client_">
+                </div>
+                <div class="config-item">
+                    <label for="username">用户名:</label>
+                    <input type="text" id="username" placeholder="可选">
+                </div>
+                <div class="config-item">
+                    <label for="password">密码:</label>
+                    <input type="password" id="password" placeholder="可选">
+                </div>
+                <div class="config-item">
+                    <label for="subscribeTopic">订阅主题:</label>
+                    <input type="text" id="subscribeTopic" placeholder="device/data" value="device/data">
+                </div>
+                <div class="config-item">
+                    <label for="publishTopic">发布主题:</label>
+                    <input type="text" id="publishTopic" placeholder="device/control" value="device/control">
+                </div>
+                <div class="config-item">
+                    <label for="heartbeatInterval">心跳间隔(秒):</label>
+                    <input type="number" id="heartbeatInterval" value="30" min="5" max="300">
+                </div>
+                <div class="config-item">
+                    <label for="heartbeatTopic">心跳主题:</label>
+                    <input type="text" id="heartbeatTopic" placeholder="device/heartbeat" value="device/heartbeat">
+                </div>
+            </div>
+            <div class="button-group">
+                <button id="connectBtn" class="btn btn-primary">连接</button>
+                <button id="disconnectBtn" class="btn btn-secondary" disabled>断开</button>
+                <button id="saveConfigBtn" class="btn btn-info">保存配置</button>
+                <button id="loadConfigBtn" class="btn btn-info">加载配置</button>
+            </div>
+        </div>
+
+        <!-- 控制面板 -->
+        <div class="control-panel">
+            <h2>设备控制</h2>
+            <div class="control-grid">
+                <div class="control-item">
+                    <label for="controlMessage">控制消息:</label>
+                    <input type="text" id="controlMessage" placeholder='{"command": "start"}'>
+                    <button id="sendControlBtn" class="btn btn-primary" disabled>发送</button>
+                </div>
+                <div class="control-item">
+                    <button id="startHeartbeatBtn" class="btn btn-success" disabled>启动心跳</button>
+                    <button id="stopHeartbeatBtn" class="btn btn-warning" disabled>停止心跳</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 数据展示面板 -->
+        <div class="chart-panel">
+            <h2>实时数据图表</h2>
+            <div class="chart-container">
+                <canvas id="dataChart"></canvas>
+            </div>
+        </div>
+
+        <!-- 消息日志 -->
+        <div class="log-panel">
+            <h2>消息日志</h2>
+            <div class="log-controls">
+                <button id="clearLogBtn" class="btn btn-secondary">清空日志</button>
+                <label>
+                    <input type="checkbox" id="autoScroll" checked> 自动滚动
+                </label>
+            </div>
+            <div class="log-container" id="logContainer">
+                <!-- 日志消息将在这里显示 -->
+            </div>
+        </div>
+    </div>
+
+    <script src="js/mqtt-client.js"></script>
+    <script src="js/chart-manager.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

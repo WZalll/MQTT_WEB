@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MQTT连接测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        button { 
+            padding: 10px 20px; 
+            margin: 10px; 
+            background: #007bff; 
+            color: white; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+        }
+        button:hover { background: #0056b3; }
+        #log { 
+            background: #f8f9fa; 
+            padding: 15px; 
+            border: 1px solid #dee2e6; 
+            border-radius: 4px; 
+            margin-top: 20px; 
+            height: 300px; 
+            overflow-y: auto; 
+            font-family: monospace;
+        }
+        input { 
+            width: 300px; 
+            padding: 8px; 
+            margin: 5px; 
+            border: 1px solid #ccc; 
+            border-radius: 4px; 
+        }
+    </style>
+</head>
+<body>
+    <h1>MQTT连接测试页面</h1>
+    
+    <div>
+        <input type="text" id="brokerUrl" placeholder="MQTT服务器地址" value="ws://localhost:8083/mqtt">
+        <br>
+        <button id="testBtn">测试连接</button>
+        <button id="clearBtn">清空日志</button>
+    </div>
+    
+    <div id="log"></div>
+
+    <!-- MQTT.js CDN -->
+    <script src="https://unpkg.com/mqtt@5.1.3/dist/mqtt.min.js"></script>
+    
+    <script>
+        const log = document.getElementById('log');
+        
+        function addLog(message, type = 'info') {
+            const time = new Date().toLocaleTimeString();
+            const color = {
+                'info': '#000',
+                'error': '#dc3545',
+                'success': '#28a745'
+            };
+            
+            log.innerHTML += `<div style="color: ${color[type] || '#000'}">[${time}] ${message}</div>`;
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            addLog('页面加载完成');
+            
+            // 检查MQTT库
+            if (typeof mqtt === 'undefined') {
+                addLog('❌ MQTT.js库未加载！请检查网络连接', 'error');
+            } else {
+                addLog('✅ MQTT.js库加载成功', 'success');
+            }
+            
+            // 测试按钮事件
+            document.getElementById('testBtn').addEventListener('click', function() {
+                addLog('点击了测试按钮');
+                
+                if (typeof mqtt === 'undefined') {
+                    addLog('MQTT.js库未加载，无法测试连接', 'error');
+                    return;
+                }
+                
+                const brokerUrl = document.getElementById('brokerUrl').value;
+                if (!brokerUrl) {
+                    addLog('请输入服务器地址', 'error');
+                    return;
+                }
+                
+                addLog(`尝试连接到: ${brokerUrl}`);
+                
+                try {
+                    const client = mqtt.connect(brokerUrl, {
+                        clientId: 'test_' + Math.random().toString(16).substr(2, 8),
+                        connectTimeout: 4000,
+                        clean: true
+                    });
+                    
+                    client.on('connect', function() {
+                        addLog('✅ 连接成功！', 'success');
+                        client.end();
+                    });
+                    
+                    client.on('error', function(error) {
+                        addLog(`❌ 连接错误: ${error.message}`, 'error');
+                    });
+                    
+                    client.on('close', function() {
+                        addLog('连接已关闭');
+                    });
+                    
+                } catch (error) {
+                    addLog(`❌ 连接异常: ${error.message}`, 'error');
+                }
+            });
+            
+            // 清空日志
+            document.getElementById('clearBtn').addEventListener('click', function() {
+                log.innerHTML = '';
+                addLog('日志已清空');
+            });
+        });
+    </script>
+</body>
+</html>
