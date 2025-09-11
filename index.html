@@ -57,6 +57,32 @@
             </div>
             
             <!-- 数据卡片 -->
+            <div class="device-status-section">
+                <div class="device-status-card">
+                    <div class="device-status-header">
+                        <h3>设备状态</h3>
+                        <div class="device-indicator" id="deviceIndicator">
+                            <span class="device-status-dot" id="deviceStatusDot"></span>
+                            <span class="device-status-text" id="deviceStatusText">离线</span>
+                        </div>
+                    </div>
+                    <div class="device-info">
+                        <div class="device-info-item">
+                            <span class="info-label">最后心跳:</span>
+                            <span class="info-value" id="lastHeartbeat">--</span>
+                        </div>
+                        <div class="device-info-item">
+                            <span class="info-label">心跳计数:</span>
+                            <span class="info-value" id="heartbeatCount">--</span>
+                        </div>
+                        <div class="device-info-item">
+                            <span class="info-label">在线时长:</span>
+                            <span class="info-value" id="onlineTime">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="data-cards">
                 <div class="data-card">
                     <h3>温度</h3>

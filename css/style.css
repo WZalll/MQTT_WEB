@@ -196,6 +196,104 @@ body {
 }
 
 /* 数据卡片样式 */
+.device-status-section {
+    margin-bottom: 30px;
+}
+
+.device-status-card {
+    background: white;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    border: 1px solid #e9ecef;
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.device-status-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+}
+
+.device-status-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.device-status-header h3 {
+    color: #2c3e50;
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.device-indicator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.device-status-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: #dc3545;
+    transition: all 0.3s;
+}
+
+.device-status-dot.online {
+    background-color: #28a745;
+    box-shadow: 0 0 10px rgba(40, 167, 69, 0.5);
+}
+
+.device-status-dot.warning {
+    background-color: #ffc107;
+    box-shadow: 0 0 10px rgba(255, 193, 7, 0.5);
+}
+
+.device-status-text {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #dc3545;
+}
+
+.device-status-text.online {
+    color: #28a745;
+}
+
+.device-status-text.warning {
+    color: #ffc107;
+}
+
+.device-info {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+}
+
+.device-info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.info-label {
+    font-size: 0.8rem;
+    color: #6c757d;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.info-value {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
 .data-cards {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -469,6 +567,14 @@ body {
     color: #f39c12;
 }
 
+.log-entry.success {
+    color: #27ae60;
+}
+
+.log-entry.warning {
+    color: #f39c12;
+}
+
 .log-timestamp {
     color: #6c757d;
     margin-right: 12px;
@@ -528,6 +634,22 @@ body {
     .quick-actions {
         width: 100%;
         justify-content: center;
+    }
+    
+    .device-status-card {
+        margin-bottom: 20px;
+    }
+    
+    .device-status-header {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+    }
+    
+    .device-info {
+        grid-template-columns: 1fr;
+        gap: 10px;
+        text-align: center;
     }
 }
 

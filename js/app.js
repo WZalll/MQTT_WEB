@@ -35,6 +35,16 @@ class App {
             pressure: '--'
         };
         
+        // 设备状态监控
+        this.deviceStatus = {
+            isOnline: false,
+            lastHeartbeat: null,
+            heartbeatCount: 0,
+            onlineStartTime: null,
+            heartbeatTimeout: null,
+            heartbeatTimeoutDuration: 30000 // 30秒无心跳则认为离线
+        };
+        
         // 将logger设置为全局变量供其他模块使用
         window.logger = this.logger;
         
@@ -50,6 +60,7 @@ class App {
         this.loadSavedConfig();
         this.setupMQTTCallbacks();
         this.initNavigation();
+        this.initDeviceMonitoring();
         console.log('应用初始化完成');
     }
 
@@ -229,6 +240,150 @@ class App {
     }
 
     /**
+     * 初始化设备监控
+     */
+    initDeviceMonitoring() {
+        // 定期更新在线时长显示
+        setInterval(() => {
+            this.updateOnlineTime();
+        }, 1000);
+        
+        // 初始化设备状态显示
+        this.updateDeviceStatusUI();
+    }
+
+    /**
+     * 更新设备状态UI
+     */
+    updateDeviceStatusUI() {
+        const statusDot = document.getElementById('deviceStatusDot');
+        const statusText = document.getElementById('deviceStatusText');
+        const lastHeartbeat = document.getElementById('lastHeartbeat');
+        const heartbeatCount = document.getElementById('heartbeatCount');
+        
+        if (!statusDot || !statusText) return;
+        
+        if (this.deviceStatus.isOnline) {
+            statusDot.className = 'device-status-dot online';
+            statusText.className = 'device-status-text online';
+            statusText.textContent = '在线';
+        } else {
+            statusDot.className = 'device-status-dot';
+            statusText.className = 'device-status-text';
+            statusText.textContent = '离线';
+        }
+        
+        if (lastHeartbeat) {
+            lastHeartbeat.textContent = this.deviceStatus.lastHeartbeat || '--';
+        }
+        
+        if (heartbeatCount) {
+            heartbeatCount.textContent = this.deviceStatus.heartbeatCount || '--';
+        }
+    }
+
+    /**
+     * 更新在线时长
+     */
+    updateOnlineTime() {
+        const onlineTimeElement = document.getElementById('onlineTime');
+        if (!onlineTimeElement) return;
+        
+        if (this.deviceStatus.isOnline && this.deviceStatus.onlineStartTime) {
+            const now = new Date();
+            const onlineMs = now - this.deviceStatus.onlineStartTime;
+            const onlineSeconds = Math.floor(onlineMs / 1000);
+            const onlineMinutes = Math.floor(onlineSeconds / 60);
+            const onlineHours = Math.floor(onlineMinutes / 60);
+            
+            if (onlineHours > 0) {
+                onlineTimeElement.textContent = `${onlineHours}时${onlineMinutes % 60}分${onlineSeconds % 60}秒`;
+            } else if (onlineMinutes > 0) {
+                onlineTimeElement.textContent = `${onlineMinutes}分${onlineSeconds % 60}秒`;
+            } else {
+                onlineTimeElement.textContent = `${onlineSeconds}秒`;
+            }
+        } else {
+            onlineTimeElement.textContent = '--';
+        }
+    }
+
+    /**
+     * 处理设备上线
+     */
+    handleDeviceOnline() {
+        console.log('设备上线');
+        
+        if (!this.deviceStatus.isOnline) {
+            this.deviceStatus.isOnline = true;
+            this.deviceStatus.onlineStartTime = new Date();
+            this.deviceStatus.heartbeatCount = 0;
+            this.updateDeviceStatusUI();
+            this.logger.addLog('设备已上线', 'success');
+        }
+        
+        // 重置心跳超时
+        this.resetHeartbeatTimeout();
+    }
+
+    /**
+     * 处理设备心跳
+     */
+    handleDeviceHeartbeat(heartbeatData) {
+        console.log('收到设备心跳:', heartbeatData);
+        
+        // 确保设备在线
+        if (!this.deviceStatus.isOnline) {
+            this.handleDeviceOnline();
+        }
+        
+        // 更新心跳信息
+        this.deviceStatus.lastHeartbeat = new Date().toLocaleTimeString();
+        this.deviceStatus.heartbeatCount++;
+        
+        // 重置心跳超时
+        this.resetHeartbeatTimeout();
+        
+        // 更新UI
+        this.updateDeviceStatusUI();
+    }
+
+    /**
+     * 重置心跳超时定时器
+     */
+    resetHeartbeatTimeout() {
+        // 清除现有定时器
+        if (this.deviceStatus.heartbeatTimeout) {
+            clearTimeout(this.deviceStatus.heartbeatTimeout);
+        }
+        
+        // 设置新的超时定时器
+        this.deviceStatus.heartbeatTimeout = setTimeout(() => {
+            this.handleDeviceOffline();
+        }, this.deviceStatus.heartbeatTimeoutDuration);
+    }
+
+    /**
+     * 处理设备离线
+     */
+    handleDeviceOffline() {
+        console.log('设备离线');
+        
+        this.deviceStatus.isOnline = false;
+        this.deviceStatus.onlineStartTime = null;
+        this.deviceStatus.lastHeartbeat = null;
+        
+        this.updateDeviceStatusUI();
+        this.logger.addLog('设备已离线（心跳超时）', 'warning');
+        
+        // 清除超时定时器
+        if (this.deviceStatus.heartbeatTimeout) {
+            clearTimeout(this.deviceStatus.heartbeatTimeout);
+            this.deviceStatus.heartbeatTimeout = null;
+        }
+    }
+
+    /**
      * 设置MQTT回调
      */
     setupMQTTCallbacks() {
@@ -300,12 +455,40 @@ class App {
         presetBtns.forEach(btn => btn.disabled = true);
         
         this.isHeartbeatRunning = false;
+        
+        // 重置设备状态
+        this.resetDeviceStatus();
+    }
+
+    /**
+     * 重置设备状态
+     */
+    resetDeviceStatus() {
+        // 清除心跳超时定时器
+        if (this.deviceStatus.heartbeatTimeout) {
+            clearTimeout(this.deviceStatus.heartbeatTimeout);
+            this.deviceStatus.heartbeatTimeout = null;
+        }
+        
+        // 重置状态
+        this.deviceStatus.isOnline = false;
+        this.deviceStatus.lastHeartbeat = null;
+        this.deviceStatus.heartbeatCount = 0;
+        this.deviceStatus.onlineStartTime = null;
+        
+        // 更新UI
+        this.updateDeviceStatusUI();
+        
+        console.log('设备状态已重置');
     }
 
     /**
      * MQTT消息接收回调
      */
     onMQTTMessage(topic, data) {
+        // 检测设备消息类型
+        this.detectDeviceMessage(data);
+        
         // 更新数据卡片
         this.updateDataCards(data);
         
@@ -328,6 +511,33 @@ class App {
         } else if (typeof data === 'number' || !isNaN(parseFloat(data))) {
             // 纯数值数据
             this.chartManager.addDataPoint(new Date(), parseFloat(data));
+        }
+    }
+
+    /**
+     * 检测设备消息类型
+     */
+    detectDeviceMessage(data) {
+        const messageStr = typeof data === 'string' ? data : JSON.stringify(data);
+        
+        // 检测设备上线消息
+        if (messageStr.includes('Hello from ESP32') || messageStr.includes('device online') || messageStr.includes('connected')) {
+            this.handleDeviceOnline();
+            return;
+        }
+        
+        // 检测心跳消息
+        if (messageStr.includes('heartbeat') || messageStr.includes('ping') || messageStr.includes('alive')) {
+            this.handleDeviceHeartbeat(data);
+            return;
+        }
+        
+        // 如果收到任何消息且设备不在线，也认为设备上线
+        if (!this.deviceStatus.isOnline) {
+            this.handleDeviceOnline();
+        } else {
+            // 如果设备在线，任何消息都可以作为心跳
+            this.resetHeartbeatTimeout();
         }
     }
 
