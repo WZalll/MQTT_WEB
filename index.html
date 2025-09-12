@@ -53,6 +53,11 @@
                     <button id="quickConnectBtn" class="btn btn-primary" disabled>快速连接</button>
                     <button id="startHeartbeatBtn" class="btn btn-success" disabled>启动心跳</button>
                     <button id="stopHeartbeatBtn" class="btn btn-warning" disabled>停止心跳</button>
+            <!-- 设备指令：心跳开关（通过发布主题发送到设备） -->
+            <button class="btn btn-success preset-btn" title="向设备发送心跳开启指令" disabled
+                data-command='{"cmd":"heartbeat","enable":true}'>设备心跳开</button>
+            <button class="btn btn-secondary preset-btn" title="向设备发送心跳关闭指令" disabled
+                data-command='{"cmd":"heartbeat","enable":false}'>设备心跳关</button>
                 </div>
             </div>
             
