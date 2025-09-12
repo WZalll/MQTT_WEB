@@ -516,6 +516,13 @@ body {
     margin-top: 20px;
 }
 
+/* 确保 canvas 正确参与布局，避免需要缩放才重绘的问题 */
+.chart-container canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+}
+
 /* 日志面板 */
 .log-controls {
     display: flex;

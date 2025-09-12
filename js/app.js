@@ -13,10 +13,30 @@ class App {
         }
         
         try {
-            this.chartManager = new ChartManager('dataChart');
-            console.log('图表管理器创建成功');
+            if (typeof Chart !== 'undefined' && document.getElementById('dataChart')) {
+                this.chartManager = new ChartManager('dataChart');
+                console.log('图表管理器创建成功');
+            } else {
+                // 提供一个空实现，避免后续调用报错
+                this.chartManager = {
+                    addDataPoint: () => {},
+                    addSingleDataPoint: () => {},
+                    clearData: () => {},
+                    setMaxDataPoints: () => {},
+                    exportToCSV: () => {},
+                };
+                console.warn('Chart.js 未加载或画布不可用，已使用空图表管理器');
+            }
         } catch (error) {
             console.error('图表管理器创建失败:', error);
+            // 兜底：即使异常，也提供空实现，保障后续逻辑不报错
+            this.chartManager = {
+                addDataPoint: () => {},
+                addSingleDataPoint: () => {},
+                clearData: () => {},
+                setMaxDataPoints: () => {},
+                exportToCSV: () => {},
+            };
         }
         
         try {
@@ -125,6 +145,28 @@ class App {
         if (loadConfigBtn) {
             loadConfigBtn.addEventListener('click', () => {
                 this.loadSavedConfig();
+            });
+        }
+
+        const randomClientIdBtn = document.getElementById('randomClientIdBtn');
+        if (randomClientIdBtn) {
+            randomClientIdBtn.addEventListener('click', () => {
+                const input = document.getElementById('clientId');
+                input.value = 'mqtt_web_client_' + Math.random().toString(16).slice(2, 10);
+            });
+        }
+
+        const resetDefaultsBtn = document.getElementById('resetDefaultsBtn');
+        if (resetDefaultsBtn) {
+            resetDefaultsBtn.addEventListener('click', () => {
+                try {
+                    localStorage.removeItem('mqttConfig');
+                    const defaults = this.mqttClient.loadConfig();
+                    this.setConfigToForm(defaults);
+                    this.logger.addLog('已重置为默认配置', 'info');
+                } catch (e) {
+                    console.error('重置默认配置失败:', e);
+                }
             });
         }
 
@@ -237,6 +279,11 @@ class App {
         }
         
         this.currentPage = pageName;
+
+        // 若切换到包含图表的页面，触发一次尺寸计算
+        if (pageName === 'dashboard' && this.chartManager && this.chartManager.handleResize) {
+            this.chartManager.handleResize();
+        }
     }
 
     /**
@@ -521,6 +568,8 @@ class App {
 
             if (foundData) {
                 this.updateDataCards(parsedData);
+                // 调试日志：展示解析到的键值
+                try { this.logger.addLog('解析数据: ' + JSON.stringify(parsedData), 'info'); } catch (e) { console.log('解析数据', parsedData); }
                 // 统一触发绘图：一次性添加多个数据点
                 this.chartManager.addDataPoint(timestamp, parsedData);
             }
