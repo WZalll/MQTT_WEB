@@ -486,58 +486,62 @@ class App {
      * MQTT消息接收回调
      */
     onMQTTMessage(topic, data) {
-        // 检测设备消息类型
-        this.detectDeviceMessage(data);
-        
-        // 更新数据卡片
-        this.updateDataCards(data);
-        
-        // 如果数据包含时间戳和数值，添加到图表
-        if (typeof data === 'object' && data !== null) {
-            // 尝试找到数值数据
-            const timestamp = data.timestamp || data.time || new Date().toISOString();
-            
-            // 提取数值字段
-            const numericData = {};
-            Object.entries(data).forEach(([key, value]) => {
-                if (typeof value === 'number' || (!isNaN(parseFloat(value)) && key !== 'timestamp' && key !== 'time')) {
-                    numericData[key] = value;
-                }
-            });
-
-            if (Object.keys(numericData).length > 0) {
-                this.chartManager.addDataPoint(timestamp, numericData);
-            }
-        } else if (typeof data === 'number' || !isNaN(parseFloat(data))) {
-            // 纯数值数据
-            this.chartManager.addDataPoint(new Date(), parseFloat(data));
-        }
+        // 解析和处理消息
+        this.parseAndProcessMessage(data);
     }
 
     /**
-     * 检测设备消息类型
+     * 解析并处理收到的消息
      */
-    detectDeviceMessage(data) {
-        const messageStr = typeof data === 'string' ? data : JSON.stringify(data);
-        
-        // 检测设备上线消息
-        if (messageStr.includes('Hello from ESP32') || messageStr.includes('device online') || messageStr.includes('connected')) {
+    parseAndProcessMessage(data) {
+        const timestamp = new Date();
+        let parsedData = {};
+
+        if (typeof data === 'string') {
+            const lowerCaseData = data.toLowerCase();
+            if (lowerCaseData.includes('hello from esp32') || lowerCaseData.includes('connected') || lowerCaseData.includes('device online')) {
+                this.handleDeviceOnline();
+                return;
+            }
+            if (lowerCaseData.includes('heartbeat') || lowerCaseData.includes('ping') || lowerCaseData.includes('alive')) {
+                this.handleDeviceHeartbeat(data);
+            } else {
+                this.handleDeviceOnline();
+            }
+
+            const regex = /(\w+)\s*=\s*([\d.-]+)/g;
+            let match;
+            let foundData = false;
+            while ((match = regex.exec(data)) !== null) {
+                foundData = true;
+                const key = match[1].toLowerCase();
+                const value = parseFloat(match[2]);
+                parsedData[key] = value;
+            }
+
+            if (foundData) {
+                this.updateDataCards(parsedData);
+                // 统一触发绘图：一次性添加多个数据点
+                this.chartManager.addDataPoint(timestamp, parsedData);
+            }
+        } else if (typeof data === 'object' && data !== null) {
             this.handleDeviceOnline();
-            return;
-        }
-        
-        // 检测心跳消息
-        if (messageStr.includes('heartbeat') || messageStr.includes('ping') || messageStr.includes('alive')) {
-            this.handleDeviceHeartbeat(data);
-            return;
-        }
-        
-        // 如果收到任何消息且设备不在线，也认为设备上线
-        if (!this.deviceStatus.isOnline) {
-            this.handleDeviceOnline();
-        } else {
-            // 如果设备在线，任何消息都可以作为心跳
-            this.resetHeartbeatTimeout();
+            if (data.type === 'heartbeat' || data.status === 'alive') {
+                this.handleDeviceHeartbeat(data);
+            }
+            this.updateDataCards(data);
+
+            const jsonTimestamp = data.timestamp || data.time || timestamp;
+            // 仅抽取数值字段
+            const numericOnly = {};
+            for (const key in data) {
+                if (typeof data[key] === 'number') {
+                    numericOnly[key] = data[key];
+                }
+            }
+            if (Object.keys(numericOnly).length > 0) {
+                this.chartManager.addDataPoint(jsonTimestamp, numericOnly);
+            }
         }
     }
 
@@ -545,64 +549,34 @@ class App {
      * 更新数据卡片
      */
     updateDataCards(data) {
-        if (typeof data === 'object' && data !== null) {
-            // 映射数据字段到卡片
-            const fieldMap = {
-                temperature: ['temperature', 'temp', 't'],
-                humidity: ['humidity', 'hum', 'h'],
-                speed: ['speed', 'rotation_speed', 'rpm', 'rotationSpeed'],
-                pressure: ['pressure', 'press', 'p']
-            };
-            
-            Object.entries(fieldMap).forEach(([cardType, fields]) => {
-                const value = this.findValueInData(data, fields);
-                if (value !== null) {
-                    this.updateDataCard(cardType, value);
-                }
-            });
-        }
-    }
+        if (typeof data !== 'object' || data === null) return;
 
-    /**
-     * 在数据中查找匹配的字段值
-     */
-    findValueInData(data, fields) {
-        for (const field of fields) {
-            if (data.hasOwnProperty(field) && !isNaN(parseFloat(data[field]))) {
-                return parseFloat(data[field]);
+        // 关键修复：为 temperature 添加 'temp' 作为别名
+        const keyMap = {
+            temperature: ['temperature', 'temp'],
+            humidity: ['humidity'],
+            speed: ['speed'],
+            pressure: ['pressure']
+        };
+
+        for (const cardType in keyMap) {
+            for (const key of keyMap[cardType]) {
+                if (data[key] !== undefined) {
+                    this.updateDataCard(cardType, data[key]);
+                    break; 
+                }
             }
         }
-        return null;
     }
 
     /**
      * 更新单个数据卡片
      */
     updateDataCard(type, value) {
-        const cardElement = document.getElementById(`${type}Value`);
-        if (cardElement) {
-            // 格式化数值显示
-            let formattedValue;
-            if (type === 'temperature') {
-                formattedValue = value.toFixed(1);
-            } else if (type === 'humidity') {
-                formattedValue = Math.round(value);
-            } else if (type === 'speed') {
-                formattedValue = Math.round(value);
-            } else if (type === 'pressure') {
-                formattedValue = value.toFixed(0);
-            } else {
-                formattedValue = value.toFixed(2);
-            }
-            
-            cardElement.textContent = formattedValue;
-            this.dataValues[type] = formattedValue;
-            
-            // 添加更新动画效果
-            cardElement.parentElement.style.transform = 'scale(1.05)';
-            setTimeout(() => {
-                cardElement.parentElement.style.transform = 'scale(1)';
-            }, 200);
+        const element = document.getElementById(`${type}Value`);
+        if (element) {
+            element.textContent = value;
+            this.dataValues[type] = value;
         }
     }
 

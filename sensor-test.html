@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>温湿度数据解析测试</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .test-output {
+            background: #f8f9fa;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .log {
+            background: #e9ecef;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>温湿度数据解析测试</h1>
+        
+        <div class="test-section">
+            <h3>测试数据解析</h3>
+            <input type="text" class="test-input" id="testMessage" 
+                   value="ESP32 heartbeat: 30 humidity=95 temp=27"
+                   placeholder="输入要测试的消息">
+            <button class="btn" onclick="testParsing()">解析测试</button>
+            <div class="test-output" id="parseResult"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>预设测试消息</h3>
+            <button class="btn" onclick="testPreset('ESP32 heartbeat: 30 humidity=95 temp=27')">ESP32心跳格式</button>
+            <button class="btn" onclick="testPreset('humidity=75.5 temp=23.2')">通用格式1</button>
+            <button class="btn" onclick="testPreset('temperature: 25.8, humidity: 60')">通用格式2</button>
+            <button class="btn" onclick="testPreset('Hello from ESP32')">设备上线消息</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>解析日志</h3>
+            <div class="log" id="testLog"></div>
+            <button class="btn" onclick="clearLog()">清空日志</button>
+        </div>
+    </div>
+
+    <script>
+        // 简化版的解析函数
+        function parseSensorData(data) {
+            const messageStr = typeof data === 'string' ? data : JSON.stringify(data);
+            
+            // 解析 ESP32 心跳消息中的温湿度数据
+            const heartbeatMatch = messageStr.match(/ESP32 heartbeat:\s*\d+\s+humidity=(\d+(?:\.\d+)?)\s+temp=(\d+(?:\.\d+)?)/);
+            if (heartbeatMatch) {
+                return {
+                    humidity: parseFloat(heartbeatMatch[1]),
+                    temperature: parseFloat(heartbeatMatch[2]),
+                    type: 'ESP32 heartbeat'
+                };
+            }
+            
+            // 通用温湿度数据解析
+            const humidityMatch = messageStr.match(/humidity[=:]\s*(\d+(?:\.\d+)?)/i);
+            const tempMatch = messageStr.match(/temp(?:erature)?[=:]\s*(\d+(?:\.\d+)?)/i);
+            
+            if (humidityMatch || tempMatch) {
+                const result = { type: 'generic' };
+                if (humidityMatch) result.humidity = parseFloat(humidityMatch[1]);
+                if (tempMatch) result.temperature = parseFloat(tempMatch[1]);
+                return result;
+            }
+            
+            return null;
+        }
+
+        function detectDeviceMessage(data) {
+            const messageStr = typeof data === 'string' ? data : JSON.stringify(data);
+            
+            if (messageStr.includes('Hello from ESP32') || messageStr.includes('device online') || messageStr.includes('connected')) {
+                return 'device_online';
+            }
+            
+            if (messageStr.includes('heartbeat') || messageStr.includes('ping') || messageStr.includes('alive')) {
+                return 'heartbeat';
+            }
+            
+            return 'unknown';
+        }
+
+        function testParsing() {
+            const message = document.getElementById('testMessage').value;
+            const sensorData = parseSensorData(message);
+            const deviceType = detectDeviceMessage(message);
+            
+            const result = {
+                message: message,
+                sensorData: sensorData,
+                deviceType: deviceType,
+                timestamp: new Date().toLocaleTimeString()
+            };
+            
+            document.getElementById('parseResult').textContent = JSON.stringify(result, null, 2);
+            
+            addLog(`解析消息: "${message}"`);
+            if (sensorData) {
+                addLog(`✅ 解析成功: 温度=${sensorData.temperature || 'N/A'}°C, 湿度=${sensorData.humidity || 'N/A'}%`);
+            } else {
+                addLog(`❌ 未找到温湿度数据`);
+            }
+            addLog(`设备消息类型: ${deviceType}`);
+            addLog('---');
+        }
+
+        function testPreset(message) {
+            document.getElementById('testMessage').value = message;
+            testParsing();
+        }
+
+        function addLog(message) {
+            const logDiv = document.getElementById('testLog');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('testLog').textContent = '';
+        }
+
+        // 页面加载时自动测试
+        window.addEventListener('DOMContentLoaded', () => {
+            addLog('页面加载完成，可以开始测试');
+            testParsing(); // 自动测试默认消息
+        });
+    </script>
+</body>
+</html>
