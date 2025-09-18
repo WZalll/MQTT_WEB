@@ -178,6 +178,17 @@ class ChartManager {
      */
     createDataset(name) {
         const colors = [
+            'rgba(75, 192, 192, 0.2)',   // 青色 - 降低透明度避免遮挡
+            'rgba(255, 99, 132, 0.2)',   // 红色
+            'rgba(54, 162, 235, 0.2)',   // 蓝色
+            'rgba(255, 206, 86, 0.2)',   // 黄色
+            'rgba(153, 102, 255, 0.2)',  // 紫色
+            'rgba(255, 159, 64, 0.2)',   // 橙色
+            'rgba(199, 199, 199, 0.2)',  // 灰色
+            'rgba(83, 102, 255, 0.2)'    // 深蓝色
+        ];
+
+        const borderColors = [
             'rgb(75, 192, 192)',   // 青色
             'rgb(255, 99, 132)',   // 红色
             'rgb(54, 162, 235)',   // 蓝色
@@ -189,18 +200,22 @@ class ChartManager {
         ];
 
         const colorIndex = this.datasets.size % colors.length;
-        const color = colors[colorIndex];
+        const backgroundColor = colors[colorIndex];
+        const borderColor = borderColors[colorIndex];
 
         return {
             label: name,
             data: [],
-            borderColor: color,
-            backgroundColor: color + '20', // 添加透明度
-            borderWidth: 2,
-            fill: false,
-            tension: 0.1,
-            pointRadius: 3,
-            pointHoverRadius: 5,
+            borderColor: borderColor,
+            backgroundColor: backgroundColor,
+            borderWidth: 2.5, // 稍微加粗边线，突出数据线条
+            fill: true, // 填充区域，形成实心色块
+            tension: 0.3, // 适度平滑
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            pointBackgroundColor: borderColor,
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
             spanGaps: true
         };
     }

@@ -62,7 +62,9 @@ class App {
             heartbeatCount: 0,
             onlineStartTime: null,
             heartbeatTimeout: null,
-            heartbeatTimeoutDuration: 30000 // 30秒无心跳则认为离线
+            heartbeatTimeoutDuration: 30000, // 30秒无心跳则认为离线
+            hasWarning: false,
+            warningMessage: ''
         };
         
         // 将logger设置为全局变量供其他模块使用
@@ -81,6 +83,7 @@ class App {
         this.setupMQTTCallbacks();
         this.initNavigation();
         this.initDeviceMonitoring();
+        this.initAlertBar();
         console.log('应用初始化完成');
     }
 
@@ -233,6 +236,26 @@ class App {
                 }
             });
         }
+
+        // 测试告警按钮
+        const testAlertBtn = document.getElementById('testAlertBtn');
+        if (testAlertBtn) {
+            testAlertBtn.addEventListener('click', () => {
+                this.showWarning('DHT11 读取失败 - 测试告警');
+            });
+        }
+    }
+
+    /**
+     * 初始化告警栏交互
+     */
+    initAlertBar() {
+        const closeBtn = document.getElementById('alertCloseBtn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                this.clearWarning();
+            });
+        }
     }
 
     /**
@@ -307,6 +330,8 @@ class App {
         const statusText = document.getElementById('deviceStatusText');
         const lastHeartbeat = document.getElementById('lastHeartbeat');
         const heartbeatCount = document.getElementById('heartbeatCount');
+        const alertContainer = document.getElementById('alertContainer');
+        const alertMessage = document.getElementById('alertMessage');
         
         if (!statusDot || !statusText) return;
         
@@ -326,6 +351,73 @@ class App {
         
         if (heartbeatCount) {
             heartbeatCount.textContent = this.deviceStatus.heartbeatCount || '--';
+        }
+
+        if (alertContainer && alertMessage) {
+            if (this.deviceStatus.hasWarning) {
+                alertMessage.textContent = this.deviceStatus.warningMessage || '告警';
+                alertContainer.classList.remove('hidden');
+            } else {
+                alertContainer.classList.add('hidden');
+            }
+        }
+    }
+
+    /**
+     * 显示告警
+     */
+    showWarning(message) {
+        console.log('显示告警:', message);
+        
+        this.deviceStatus.hasWarning = true;
+        this.deviceStatus.warningMessage = message;
+        
+        // 直接控制告警栏显示
+        const alertContainer = document.getElementById('alertContainer');
+        const alertMessage = document.getElementById('alertMessage');
+        if (alertContainer && alertMessage) {
+            alertMessage.textContent = message;
+            alertContainer.classList.remove('hidden');
+            console.log('告警栏已显示');
+        }
+        
+        // 同步设备状态颜色提示为 warning
+        const statusDot = document.getElementById('deviceStatusDot');
+        const statusText = document.getElementById('deviceStatusText');
+        if (statusDot && statusText) {
+            statusDot.className = 'device-status-dot warning';
+            statusText.className = 'device-status-text warning';
+            statusText.textContent = '告警';
+        }
+        
+        if (this.logger) this.logger.addLog(`告警: ${message}`, 'warning');
+    }
+
+    /**
+     * 清除告警
+     */
+    clearWarning() {
+        console.log('清除告警');
+        
+        this.deviceStatus.hasWarning = false;
+        this.deviceStatus.warningMessage = '';
+        
+        // 直接控制告警栏隐藏
+        const alertContainer = document.getElementById('alertContainer');
+        if (alertContainer) {
+            alertContainer.classList.add('hidden');
+            console.log('告警栏已隐藏');
+        }
+        
+        // 恢复设备状态显示
+        if (this.deviceStatus.isOnline) {
+            const statusDot = document.getElementById('deviceStatusDot');
+            const statusText = document.getElementById('deviceStatusText');
+            if (statusDot && statusText) {
+                statusDot.className = 'device-status-dot online';
+                statusText.className = 'device-status-text online';
+                statusText.textContent = '在线';
+            }
         }
     }
 
@@ -419,6 +511,8 @@ class App {
         this.deviceStatus.isOnline = false;
         this.deviceStatus.onlineStartTime = null;
         this.deviceStatus.lastHeartbeat = null;
+        this.deviceStatus.hasWarning = false;
+        this.deviceStatus.warningMessage = '';
         
         this.updateDeviceStatusUI();
         this.logger.addLog('设备已离线（心跳超时）', 'warning');
@@ -522,14 +616,14 @@ class App {
         this.deviceStatus.lastHeartbeat = null;
         this.deviceStatus.heartbeatCount = 0;
         this.deviceStatus.onlineStartTime = null;
+        this.deviceStatus.hasWarning = false;
+        this.deviceStatus.warningMessage = '';
         
         // 更新UI
         this.updateDeviceStatusUI();
         
         console.log('设备状态已重置');
-    }
-
-    /**
+    }    /**
      * MQTT消息接收回调
      */
     onMQTTMessage(topic, data) {
@@ -545,6 +639,11 @@ class App {
         let parsedData = {};
 
         if (typeof data === 'string') {
+            // 关键：检测 DHT11 读取失败的告警
+            if (/dht11_read_failed/i.test(data)) {
+                this.showWarning('DHT11 读取失败');
+            }
+            
             const lowerCaseData = data.toLowerCase();
             if (lowerCaseData.includes('hello from esp32') || lowerCaseData.includes('connected') || lowerCaseData.includes('device online')) {
                 this.handleDeviceOnline();
@@ -567,6 +666,14 @@ class App {
             }
 
             if (foundData) {
+                // 如果收到有效的传感器数据，且当前有DHT11相关告警，则自动清除告警
+                if (this.deviceStatus.hasWarning && 
+                    this.deviceStatus.warningMessage && 
+                    this.deviceStatus.warningMessage.includes('DHT11')) {
+                    console.log('收到正常传感器数据，自动清除DHT11告警');
+                    this.clearWarning();
+                }
+                
                 this.updateDataCards(parsedData);
                 // 调试日志：展示解析到的键值
                 try { this.logger.addLog('解析数据: ' + JSON.stringify(parsedData), 'info'); } catch (e) { console.log('解析数据', parsedData); }

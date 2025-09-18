@@ -58,7 +58,15 @@
                 data-command='{"cmd":"heartbeat","enable":true}'>设备心跳开</button>
             <button class="btn btn-secondary preset-btn" title="向设备发送心跳关闭指令" disabled
                 data-command='{"cmd":"heartbeat","enable":false}'>设备心跳关</button>
+            <!-- 测试按钮 -->
+            <button id="testAlertBtn" class="btn btn-warning" title="测试告警功能">测试告警</button>
                 </div>
+            </div>
+
+            <!-- 告警栏（动态显示） -->
+            <div id="alertContainer" class="alert alert-warning hidden">
+                <span id="alertMessage">传感器告警</span>
+                <button id="alertCloseBtn" class="alert-close" title="关闭告警">×</button>
             </div>
             
             <!-- 数据卡片 -->
